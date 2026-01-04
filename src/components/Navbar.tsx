@@ -162,11 +162,10 @@ const Navbar: React.FC = () => {
             <Link key={item.path} to={item.path}>
               <Button
                 variant="ghost"
-                className={`gap-2 rounded-full px-4 ${
-                  isActive(item.path)
+                className={`gap-2 rounded-full px-4 ${isActive(item.path)
                     ? 'bg-green-600 text-white hover:bg-green-600'
                     : 'text-gray-700 hover:bg-gray-100'
-                }`}
+                  }`}
               >
                 <item.icon className="w-4 h-4" />
                 {item.label}
