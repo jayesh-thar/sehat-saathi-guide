@@ -62,6 +62,8 @@ const Navbar: React.FC = () => {
     { path: '/tips', label: t.healthTips, icon: '🌿', color: 'text-green-600' },
     { path: '/store', label: t.medicineStore, icon: '💊', color: 'text-amber-600' },
     { path: '/assistant', label: t.aiAssistant, icon: '🤖', color: 'text-blue-600' },
+    { path: '/reminders', label: 'Reminders', icon: '⏰', color: 'text-purple-600' },
+
   ];
 
   const moreItems = [

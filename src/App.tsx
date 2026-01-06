@@ -24,6 +24,8 @@ import Checkout from '@/components/Checkout';
 import Auth from '@/components/Auth';
 import Profile from '@/components/Profile';
 import NotFound from "./pages/NotFound";
+import Reminders from "@/pages/Reminders";
+
 
 const queryClient = new QueryClient();
 
@@ -124,6 +126,8 @@ const App = () => {
                       <Route path="/auth" element={<Auth />} />
                       <Route path="/profile" element={<Profile />} />
                       <Route path="*" element={<NotFound />} />
+                      <Route path="/reminders" element={<Reminders />} />
+
                     </Routes>
                     <Footer />
                     {/* NEW: Add the floating scroll to top button */}
