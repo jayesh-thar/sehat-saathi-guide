@@ -1,23 +1,40 @@
 import { Router, Response } from 'express';
 import { User } from '../models/User';
 import { generateToken, protect, AuthRequest } from '../middleware/auth';
-import { logAuthEvent, logProfileUpdate, logFailedAuth } from '../utils/auditLogger';
-import logger from '../config/logger';
+import { validateBody } from '../middleware/validation';
+import { authLimiter, registrationLimiter } from '../middleware/rateLimiter';
+import { asyncHandler } from '../middleware/errorHandler';
+import {
+  registerSchema,
+  loginSchema,
+  updateProfileSchema
+} from '../validators/authValidator';
+import {
+  ConflictError,
+  AuthenticationError,
+  fromMongoError
+} from '../utils/errors';
 
 const router = Router();
 
-// Register
-router.post('/register', async (req, res) => {
-  try {
+/**
+ * @route   POST /api/auth/register
+ * @desc    Register a new user
+ * @access  Public
+ */
+router.post('/register',
+  registrationLimiter,
+  validateBody(registerSchema),
+  asyncHandler(async (req, res) => {
     const { name, email, phone, password } = req.body;
 
+    // Check if user exists
     const existingUser = await User.findOne({ email });
     if (existingUser) {
-      logFailedAuth(email, 'User already exists', req);
-      res.status(400).json({ message: 'User already exists' });
-      return;
+      throw new ConflictError('User with this email already exists');
     }
 
+    // Create user
     const user = await User.create({ name, email, phone, password });
     const token = generateToken(user._id as string);
 
@@ -30,29 +47,37 @@ router.post('/register', async (req, res) => {
     });
 
     res.status(201).json({
-      user: { id: user._id, name: user.name, email: user.email, phone: user.phone },
-      token,
+      success: true,
+      data: {
+        user: {
+          id: user._id,
+          name: user.name,
+          email: user.email,
+          phone: user.phone
+        },
+        token,
+      },
+      message: 'Registration successful',
     });
-  } catch (error: any) {
-    logger.error('Registration error:', {
-      requestId: req.id,
-      error: error.message,
-      stack: error.stack,
-    });
-    res.status(500).json({ message: 'Server error' });
-  }
-});
+  })
+);
 
-// Login
-router.post('/login', async (req, res) => {
-  try {
+/**
+ * @route   POST /api/auth/login
+ * @desc    Login user
+ * @access  Public
+ */
+router.post('/login',
+  authLimiter,
+  validateBody(loginSchema),
+  asyncHandler(async (req, res) => {
     const { email, password } = req.body;
 
+    // Find user with password
     const user = await User.findOne({ email }).select('+password');
+
     if (!user || !(await user.comparePassword(password))) {
-      logFailedAuth(email, 'Invalid credentials', req);
-      res.status(401).json({ message: 'Invalid email or password' });
-      return;
+      throw new AuthenticationError('Invalid email or password');
     }
 
     const token = generateToken(user._id as string);
@@ -66,74 +91,80 @@ router.post('/login', async (req, res) => {
     });
 
     res.json({
-      user: { id: user._id, name: user.name, email: user.email, phone: user.phone, profilePic: user.profilePic },
-      token,
+      success: true,
+      data: {
+        user: {
+          id: user._id,
+          name: user.name,
+          email: user.email,
+          phone: user.phone,
+          profilePic: user.profilePic
+        },
+        token,
+      },
+      message: 'Login successful',
     });
-  } catch (error: any) {
-    logger.error('Login error:', {
-      requestId: req.id,
-      error: error.message,
-      stack: error.stack,
-    });
-    res.status(500).json({ message: 'Server error' });
-  }
-});
+  })
+);
 
-// Get current user
-router.get('/me', protect, async (req: AuthRequest, res: Response) => {
-  logger.debug('Fetching current user', {
-    requestId: req.id,
-    userId: (req.user! as any)._id,
-  });
-
-  res.json({
-    user: {
-      id: (req.user! as any)._id,
-      name: req.user!.name,
-      email: req.user!.email,
-      phone: req.user!.phone,
-      profilePic: req.user!.profilePic,
-    },
-  });
-});
-
-// Update profile
-router.put('/profile', protect, async (req: AuthRequest, res: Response) => {
-  try {
-    const { name, phone, profilePic } = req.body;
-    const userId = (req.user! as any)._id.toString();
-
-    const updatedFields = [];
-    if (name) updatedFields.push('name');
-    if (phone) updatedFields.push('phone');
-    if (profilePic) updatedFields.push('profilePic');
-
-    const user = await User.findByIdAndUpdate(
-      userId,
-      { name, phone, profilePic },
-      { new: true }
-    );
-
-    // Log profile update
-    logProfileUpdate(userId, req, updatedFields);
-    logger.info(`Profile updated for user: ${userId}`, {
-      requestId: req.id,
-      userId,
-      updatedFields,
-    });
-
+/**
+ * @route   GET /api/auth/me
+ * @desc    Get current user
+ * @access  Private
+ */
+router.get('/me',
+  protect,
+  asyncHandler(async (req: AuthRequest, res: Response) => {
     res.json({
-      user: { id: user!._id, name: user!.name, email: user!.email, phone: user!.phone, profilePic: user!.profilePic },
+      success: true,
+      data: {
+        user: {
+          id: (req.user! as any)._id,
+          name: req.user!.name,
+          email: req.user!.email,
+          phone: req.user!.phone,
+          profilePic: req.user!.profilePic,
+        },
+      },
     });
-  } catch (error: any) {
-    logger.error('Profile update error:', {
-      requestId: req.id,
-      userId: (req.user! as any)._id,
-      error: error.message,
-      stack: error.stack,
-    });
-    res.status(500).json({ message: 'Server error' });
-  }
-});
+  })
+);
+
+/**
+ * @route   PUT /api/auth/profile
+ * @desc    Update user profile
+ * @access  Private
+ */
+router.put('/profile',
+  protect,
+  validateBody(updateProfileSchema),
+  asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { name, phone, profilePic } = req.body;
+
+    try {
+      const user = await User.findByIdAndUpdate(
+        (req.user! as any)._id,
+        { name, phone, profilePic },
+        { new: true, runValidators: true }
+      );
+
+      res.json({
+        success: true,
+        data: {
+          user: {
+            id: user!._id,
+            name: user!.name,
+            email: user!.email,
+            phone: user!.phone,
+            profilePic: user!.profilePic
+          },
+        },
+        message: 'Profile updated successfully',
+      });
+    } catch (error: any) {
+      throw fromMongoError(error);
+    }
+  })
+);
 
 export default router;
