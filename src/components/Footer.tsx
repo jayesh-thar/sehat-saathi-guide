@@ -175,8 +175,8 @@ const Footer: React.FC = () => {
                                     role="status"
                                     aria-live="polite"
                                     className={`mt-4 flex items-center justify-center gap-2 text-sm font-medium rounded-md px-4 py-2 ${messageType === 'success'
-                                            ? 'bg-green-50 text-green-700 border border-green-200'
-                                            : 'bg-red-50 text-red-700 border border-red-200'
+                                        ? 'bg-green-50 text-green-700 border border-green-200'
+                                        : 'bg-red-50 text-red-700 border border-red-200'
                                         }`}
                                 >
                                     {messageType === 'success' ? (
@@ -277,7 +277,7 @@ const Footer: React.FC = () => {
                                 </Link>
                             </li>
                             <li>
-                                <Link to="#" className="text-muted-foreground hover:text-primary text-sm">
+                                <Link to="/help" className="text-muted-foreground hover:text-primary text-sm">
                                     {t.helpCenter}
                                 </Link>
                             </li>

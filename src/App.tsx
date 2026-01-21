@@ -38,6 +38,8 @@ import NotificationHistory from "@/pages/NotificationHistory";
 import VideoConsultation from '@/pages/VideoConsultation';
 import Offers from "@/components/Offers";
 import OfflineIndicator from "@/components/OfflineIndicator";
+import HelpCenter from '@/pages/HelpCenter';
+import HelpArticle from '@/pages/HelpArticle';
 import VoiceNavigation from "@/components/voice/VoiceNavigation";
 import ContactUs from "@/pages/ContactUs";
 
@@ -152,6 +154,8 @@ const App = () => {
                       <Route path="/notifications" element={<NotificationHistory />} />
                       <Route path="/consultation/:id" element={<VideoConsultation />} />
                       <Route path="/contact" element={<ContactUs />} />
+                      <Route path="/help" element={<HelpCenter />} />
+                      <Route path="/help/article/:id" element={<HelpArticle />} />
                       <Route path="*" element={<NotFound />} />
                     </Routes>
                     <Footer />
